@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>시크릿 생일 레이스: 민지야 축하해!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    @keyframes gallop {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-12px) rotate(-10deg); }
+      50% { transform: translateY(0) rotate(0deg); }
+      75% { transform: translateY(-6px) rotate(10deg); }
+    }
+    .horse-anim { animation: gallop 0.4s infinite cubic-bezier(0.45, 0.05, 0.55, 0.95); display: inline-block; }
+    .booster::after { content: '🔥'; position: absolute; left: -30px; font-size: 24px; animation: fireOut 0.8s forwards; }
+    @keyframes fireOut { from { opacity: 1; transform: translateX(0) scale(1); } to { opacity: 0; transform: translateX(-40px) scale(2); } }
+    @keyframes shake { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-3px, 3px); } 50% { transform: translate(3px, -3px); } 75% { transform: translate(-3px, -3px); } }
+    .screen-shake { animation: shake 0.1s infinite; }
+    .track-line { background-image: linear-gradient(90deg, #cbd5e1 50%, transparent 50%); background-size: 40px 1px; }
+    @keyframes surpriseBounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+    .surprise-text { animation: surpriseBounce 1s infinite ease-in-out; text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+    body { overflow-x: hidden; touch-action: manipulation; }
+    .commentary-box { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; border-radius: 20px; padding: 15px 25px; min-height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 2px solid #334155; }
+    /* 선물 가리기용 스타일 */
+    .secret-input { -webkit-text-security: disc; } /* 입력 내용을 점으로 가림 */
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
+
+  <div id="app" class="max-w-md mx-auto p-4 flex flex-col min-h-screen">
+    
+    <div id="setup-screen" class="animate-fade-in pb-10">
+      <header class="mb-8 text-center">
+        <h1 class="text-4xl font-black text-slate-900 tracking-tighter italic">SECRET DERBY</h1>
+        <p class="text-xs text-slate-500 mt-2 font-bold uppercase tracking-widest">선물은 결과 발표 때 공개됩니다!</p>
+      </header>
+
+      <div class="space-y-6 mb-8">
+        <div class="bg-white p-6 rounded-[32px] shadow-2xl border border-slate-200">
+          <div class="flex justify-between items-center mb-5">
+            <label class="text-xs font-black text-pink-600 uppercase tracking-widest">비밀 선물 설정</label>
+            <span class="text-[10px] text-slate-400 font-bold">비밀번호 모드 활성화 중</span>
+          </div>
+          
+          <div id="gift-inputs" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <button onclick="runRace()" class="w-full h-20 bg-slate-950 text-white rounded-[28px] font-black text-2xl shadow-2xl active:scale-95 transition-all">
+        시크릿 레이스 시작! 🏁
+      </button>
+    </div>
+
+    <div id="race-screen" class="hidden flex-1 flex flex-col">
+      <div id="main-track" class="relative flex-1 bg-gradient-to-b from-emerald-200 to-emerald-100 rounded-[48px] border-[8px] border-white shadow-2xl overflow-hidden">
+        <div class="absolute right-16 top-0 bottom-0 w-2 bg-red-600/30 z-0"></div>
+        <div id="track-container" class="relative h-full flex flex-col justify-between py-10 z-10 px-6"></div>
+      </div>
+      <div class="mt-4 px-2">
+        <div id="commentary" class="commentary-box text-sm font-bold shadow-xl">
+          <p id="commentary-text">준비...</p>
+          <p id="ai-insight" class="text-[10px] text-slate-400 mt-1 italic">어떤 선물이 기다릴까요?</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="result-overlay" class="fixed inset-0 bg-slate-950/98 backdrop-blur-xl z-50 hidden flex items-center justify-center p-6">
+      <div class="bg-white w-full max-h-[90vh] rounded-[56px] p-8 text-center shadow-2xl relative overflow-y-auto">
+        <div class="sticky top-0 bg-white pb-4 z-20">
+          <h2 class="text-3xl font-black text-pink-600 tracking-tighter italic surprise-text mb-1">민지야 생일 축하해~ 🎉</h2>
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">드디어 공개되는 오늘의 선물!</p>
+        </div>
+        
+        <div id="ranking-list" class="space-y-3 my-4 text-left"></div>
+
+        <div id="ai-review-box" class="bg-pink-50 p-5 rounded-3xl border border-pink-100 text-left mb-6">
+          <p id="ai-review-text" class="text-sm text-slate-700 leading-relaxed min-h-[60px]">AI 분석 중...</p>
+        </div>
+
+        <button onclick="location.reload()" class="w-full h-16 bg-slate-900 text-white rounded-[24px] font-black text-lg">다시 하기</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const apiKey = ""; // API Key 입력 필요
+    const horseIcons = ['💩', '🍌', '🍫', '🥕', '🍄', '🐶'];
+    const fixedNames = ['똥', '바나나', '초코', '당근', '버섯', '강아지'];
+    const defaultGifts = ['올영', '파스쿠찌', '버터떡', '젤리세트', '롤케이크', '꽝 다시'];
+    let currentGifts = [...defaultGifts];
+    let currentHorseStats = [];
+
+    function shootFirework() {
+      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, zIndex: 1000 });
+    }
+
+    function init() {
+      const container = document.getElementById('gift-inputs');
+      for (let i = 0; i < 6; i++) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100';
+        row.innerHTML = `
+          <span class="text-3xl shrink-0">${horseIcons[i]}</span>
+          <input type="text" value="${currentGifts[i]}"
+                 class="flex-1 h-12 px-5 rounded-[18px] text-sm font-bold bg-white shadow-inner secret-input" 
+                 oninput="currentGifts[${i}] = this.value">
+        `;
+        container.appendChild(row);
+      }
+    }
+
+    function runRace() {
+      document.getElementById('setup-screen').classList.add('hidden');
+      document.getElementById('race-screen').classList.remove('hidden');
+
+      const track = document.getElementById('track-container');
+      track.innerHTML = '';
+      currentHorseStats = fixedNames.map((_, i) => ({
+        idx: i, pos: 0, stamina: 0.5 + Math.random() * 0.5,
+        spurtPoint: 35 + Math.random() * 45, baseSpeed: 0.25 + Math.random() * 0.4
+      }));
+
+      fixedNames.forEach((_, i) => {
+        const lane = document.createElement('div');
+        lane.className = 'relative h-14 flex items-center';
+        lane.innerHTML = `<div id="hc-${i}" class="absolute left-0 transition-all duration-300 ease-linear"><div id="hi-${i}" class="horse-anim text-5xl">${horseIcons[i]}</div></div>`;
+        track.appendChild(lane);
+        currentHorseStats[i].container = document.getElementById(`hc-${i}`);
+        currentHorseStats[i].icon = document.getElementById(`hi-${i}`);
+      });
+
+      let raceOver = false;
+      const interval = setInterval(() => {
+        if (raceOver) return;
+        currentHorseStats.forEach((h) => {
+          if (raceOver) return;
+          let move = h.baseSpeed;
+          if (h.pos > 40) move *= h.stamina;
+          if (h.pos > h.spurtPoint) { move += 1.3; h.icon.classList.add('booster'); }
+          h.pos += move;
+          h.container.style.left = h.pos + '%';
+          if(h.pos >= 84) {
+            raceOver = true;
+            clearInterval(interval);
+            const rankings = [h.idx, ...currentHorseStats.filter(x => x.idx !== h.idx).sort((a,b)=>b.pos - a.pos).map(x=>x.idx)];
+            shootFirework();
+            showRankings(rankings);
+            getAIReview(fixedNames[h.idx], currentGifts[h.idx], rankings);
+          }
+        });
+      }, 100);
+    }
+
+    function showRankings(rankings) {
+      const list = document.getElementById('ranking-list');
+      list.innerHTML = '';
+      rankings.forEach((horseIdx, i) => {
+        const rank = i + 1;
+        const item = document.createElement('div');
+        item.className = `flex items-center gap-4 p-4 rounded-3xl border-2 ${rank === 1 ? 'bg-slate-900 border-pink-500 text-white scale-105' : 'bg-slate-50 opacity-60'}`;
+        item.innerHTML = `
+          <span class="w-8 h-8 flex items-center justify-center rounded-lg ${rank === 1 ? 'bg-pink-600' : 'bg-slate-200'} text-white font-black text-xs">${rank}</span>
+          <span class="text-3xl">${horseIcons[horseIdx]}</span>
+          <div class="flex-1">
+            <div class="text-[9px] font-black uppercase text-slate-400">${fixedNames[horseIdx]}말</div>
+            <div class="text-base font-black">${currentGifts[horseIdx]}</div>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+      setTimeout(() => document.getElementById('result-overlay').classList.remove('hidden'), 800);
+    }
+
+    async function getAIReview(winnerName, winnerGift, rankings) {
+      if(!apiKey) { document.getElementById('ai-review-text').innerText = "민지야 생일 축하해! 최고의 경기였어!"; return; }
+      const prompt = `민지의 생일 레이스 결과입니다. 우승: ${winnerName}말, 선물: ${winnerGift}. 순위: ${rankings.map(idx=>fixedNames[idx]).join(', ')}. 생일을 축하하며 아주 위트 있는 축하 멘트를 2문장으로 한국어로 써줘.`;
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await res.json();
+        document.getElementById('ai-review-text').innerText = data.candidates[0].content.parts[0].text;
+      } catch (e) { document.getElementById('ai-review-text').innerText = "민지야 생일 축하해! 🎉"; }
+    }
+
+    init();
+  </script>
+</body>
+</html>
